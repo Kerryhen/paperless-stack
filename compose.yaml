@@ -22,8 +22,6 @@ services:
       - gotenberg
       - --chromium-disable-javascript=true
       - --chromium-allow-list=file:///tmp/.*
-    ports:
-      - "8001:3000"
 
   tika:
     image: apache/tika:latest
@@ -55,8 +53,8 @@ services:
     volumes:
       - paperless_data:/usr/src/paperless/data
       - paperless_media:/usr/src/paperless/media
-      - ./consume:/usr/src/paperless/consume
-      - ./export:/usr/src/paperless/export
+      - paperless_consume:/usr/src/paperless/consume
+      - paperless_export:/usr/src/paperless/export
 
   paperless-ai:
     image: clusterzx/paperless-ai:latest
@@ -81,13 +79,16 @@ services:
       SCAN_INTERVAL: ${SCAN_INTERVAL}
       PAPERLESS_URL: ${PAPERLESS_URL}
 
+    volumes:
+      - paperless_ai_data:/app/data
+
   paperless-gpt:
     image: icereed/paperless-gpt:latest
     restart: unless-stopped
     depends_on:
       - paperless
     ports:
-      - "8080:8080"
+      - "3002:8080"
     environment:
       PAPERLESS_BASE_URL: ${PAPERLESS_BASE_URL}
       PAPERLESS_API_TOKEN: ${PAPERLESS_API_TOKEN}
@@ -116,8 +117,28 @@ services:
 
       LOG_LEVEL: ${LOG_LEVEL}
 
+    volumes:
+      - paperless_gpt_prompts:/app/prompts
+
+  dozzle:
+    image: amir20/dozzle:latest
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - dozzle_data:/data
+    ports:
+      - "8080:8080"
+
 volumes:
   pgdata:
   redisdata:
+
   paperless_data:
   paperless_media:
+  paperless_consume:
+  paperless_export:
+
+  paperless_ai_data:
+  paperless_gpt_prompts:
+
+  dozzle_data:
