@@ -1,137 +1,90 @@
 services:
-  # paperless-ngx main service
-  paperless:
-    image: ghcr.io/paperless-ngx/paperless-ngx:latest
-    container_name: paperless-ngx
-    restart: unless-stopped
-    env_file: 
-      - ./paperless/.env
     depends_on:
-      - postgres
       - redis
+      - postgres
       - gotenberg
       - tika
     ports:
       - "8000:8000"
-    volumes:
-      - ./paperless/data:/usr/src/paperless/data
-      - ./paperless/media:/usr/src/paperless/media
-      - ./paperless/export:/usr/src/paperless/export
-      - ./paperless/consume:/usr/src/paperless/consume
-  
-  # postgres database for paperless-ngx
-  postgres:
-    image: postgres:18
-    restart: unless-stopped
-    container_name: postgres
-    env_file: 
-      - ./postgres/.env
-    volumes:
-      - ./postgres/data:/var/lib/postgresql
-  
-  # redis database for paperless-ngx
-  redis:
-    image: docker.io/library/redis:8
-    container_name: redis
-    restart: unless-stopped
-    env_file: 
-      - ./redis/.env
-    volumes:
-      - ./redis/data:/data
-  
-  # gotenberg service that paperless uses for document conversion
-  gotenberg:
-    image: docker.io/gotenberg/gotenberg:8.25
-    container_name: gotenberg
-    env_file: 
-      - ./gotenberg/.env
-    restart: unless-stopped
-    command:
-      - "gotenberg"
-      - "--chromium-disable-javascript=true"
-      - "--chromium-allow-list=file:///tmp/.*"
-  
-  # tika service that paperless uses for document text extraction
-  tika:
-    image: docker.io/apache/tika:latest
-    container_name: tika
-    restart: unless-stopped
-    env_file: ./tika/.env
-  
+    environment:
+      TZ: ${TZ}
 
-    # open-webui service for LLM interaction
-  open-webui:
-    image: ghcr.io/open-webui/open-webui:latest
-    container_name: open-webui
-    restart: unless-stopped
-    env_file:
-      - ./open-webui/.env
-    depends_on:
-      - ollama
-    ports:
-      - "3001:8080"
-    volumes:
-      - ./open-webui/data:/app/backend/data
+      PAPERLESS_REDIS: ${PAPERLESS_REDIS}
+      PAPERLESS_DBHOST: ${PAPERLESS_DBHOST}
+      PAPERLESS_DBNAME: ${PAPERLESS_DBNAME}
+      PAPERLESS_DBUSER: ${PAPERLESS_DBUSER}
+      PAPERLESS_DBPASS: ${PAPERLESS_DBPASS}
 
-  # ollama service for local LLMs
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
-    env_file:
-      - ./ollama/.env
-    volumes:
-      - ./ollama/data/:/root/.ollama
-      - ./ollama/models:/ollama-models
-    restart: unless-stopped
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+      PAPERLESS_TIKA_ENABLED: ${PAPERLESS_TIKA_ENABLED}
+      PAPERLESS_TIKA_GOTENBERG_ENDPOINT: ${PAPERLESS_TIKA_GOTENBERG_ENDPOINT}
+      PAPERLESS_TIKA_ENDPOINT: ${PAPERLESS_TIKA_ENDPOINT}
 
-  # paperless-ai service
+    volumes:
+      - paperless_data:/usr/src/paperless/data
+      - paperless_media:/usr/src/paperless/media
+      - ./consume:/usr/src/paperless/consume
+      - ./export:/usr/src/paperless/export
+
   paperless-ai:
     image: clusterzx/paperless-ai:latest
-    container_name: paperless-ai
     restart: unless-stopped
     depends_on:
-      - ollama
       - paperless
     ports:
       - "3000:3000"
-    env_file:
-      - ./paperless-ai/.env
-    volumes:
-      - ./paperless-ai/data:/app/data
-  
+    environment:
+      PAPERLESS_API_URL: ${PAPERLESS_API_URL}
+      PAPERLESS_API_TOKEN: ${PAPERLESS_API_TOKEN}
+      PAPERLESS_USERNAME: ${PAPERLESS_USERNAME}
 
-  # paperless-gpt service
+      AI_PROVIDER: ${AI_PROVIDER}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_API_URL: ${OPENAI_API_URL}
+      OPENAI_MODEL: ${OPENAI_MODEL}
+
+      RAG_SERVICE_URL: ${RAG_SERVICE_URL}
+      RAG_SERVICE_ENABLED: ${RAG_SERVICE_ENABLED}
+
+      SCAN_INTERVAL: ${SCAN_INTERVAL}
+      PAPERLESS_URL: ${PAPERLESS_URL}
+
   paperless-gpt:
     image: icereed/paperless-gpt:latest
-    container_name: paperless-gpt
     restart: unless-stopped
     depends_on:
-      - ollama
       - paperless
     ports:
-      - "3002:8080"
-    env_file:
-      - ./paperless-gpt/.env
-    volumes:
-      - ./paperless-gpt/prompts:/app/prompts # Mount the prompts directory
-
-
-  # optional but helpful log viewer
-  dozzle:
-    image: amir20/dozzle:latest
-    restart: unless-stopped
-    container_name: dozzle
-    env_file: 
-      - ./dozzle/.env
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./dozzle/data:/data
-    ports:
       - "8080:8080"
+    environment:
+      PAPERLESS_BASE_URL: ${PAPERLESS_BASE_URL}
+      PAPERLESS_API_TOKEN: ${PAPERLESS_API_TOKEN}
+      PAPERLESS_PUBLIC_URL: ${PAPERLESS_PUBLIC_URL}
+
+      LLM_PROVIDER: ${LLM_PROVIDER}
+      LLM_MODEL: ${LLM_MODEL}
+
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_API_BASE: ${OPENAI_API_BASE}
+
+      TOKEN_LIMIT: ${TOKEN_LIMIT}
+      LLM_LANGUAGE: ${LLM_LANGUAGE}
+
+      OCR_PROVIDER: ${OCR_PROVIDER}
+
+      VISION_LLM_PROVIDER: ${VISION_LLM_PROVIDER}
+      VISION_LLM_MODEL: ${VISION_LLM_MODEL}
+
+      AUTO_OCR_TAG: ${AUTO_OCR_TAG}
+      AUTO_TAG: ${AUTO_TAG}
+      MANUAL_TAG: ${MANUAL_TAG}
+      PDF_OCR_TAGGING: ${PDF_OCR_TAGGING}
+      PDF_OCR_COMPLETE_TAG: ${PDF_OCR_COMPLETE_TAG}
+      PDF_UPLOAD: ${PDF_UPLOAD}
+
+      LOG_LEVEL: ${LOG_LEVEL}
+
+volumes:
+  pgdata:
+  redisdata:
+  paperless_data:
+  paperless_media:
